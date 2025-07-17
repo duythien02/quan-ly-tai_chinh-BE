@@ -7,7 +7,7 @@ console.log('protect:', protect);
 const router = express.Router();
 
 // Route để tạo tài khoản mới (cần xác thực token)
-router.post('/', protect, accountController.createAccount);
+router.post('/create', protect, accountController.createAccount);
 
 // Route để lấy tất cả tài khoản của người dùng (cần xác thực token)
 router.get('/', protect, accountController.getAccounts);

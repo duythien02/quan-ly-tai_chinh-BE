@@ -17,7 +17,7 @@ const AccountModel = {
 
         try {
             await pool.execute(
-                'INSERT INTO accounts (id, id, account_name, currency_code, initial_balance, current_balance) VALUES (?, ?, ?, ?, ?, ?)',
+                'INSERT INTO accounts (id, user_id, account_name, currency_code, initial_balance, current_balance) VALUES (?, ?, ?, ?, ?, ?)',
                 [accountId, userId, accountName, currencyCode, initialBalance, currentBalance]
             );
             return accountId;
@@ -35,7 +35,7 @@ const AccountModel = {
     async findByUserId(userId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, account_name, currency_code, initial_balance, current_balance, created_at FROM accounts WHERE id = ?',
+                'SELECT id, account_name, currency_code, initial_balance, current_balance FROM accounts WHERE user_id = ?',
                 [userId]
             );
             return rows;
@@ -53,7 +53,7 @@ const AccountModel = {
     async findById(accountId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, id, account_name, currency_code, initial_balance, current_balance, created_at FROM accounts WHERE id = ?',
+                'SELECT id, user_id, account_name, currency_code, initial_balance, current_balance, created_at FROM accounts WHERE id = ?',
                 [accountId]
             );
             return rows[0]; // Trả về đối tượng đầu tiên hoặc undefined
@@ -77,6 +77,38 @@ const AccountModel = {
             );
         } catch (error) {
             console.error(`Error updating balance for account ${accountId}:`, error);
+            throw error;
+        }
+    },
+    /**
+     * Tìm tất cả tài khoản thuộc về một người dùng cụ thể với phân trang.
+     * @param {string} userId - ID của người dùng.
+     * @param {number} limit - Số lượng bản ghi tối đa mỗi trang.
+     * @param {number} offset - Vị trí bắt đầu lấy bản ghi.
+     * @returns {Object} Đối tượng chứa mảng tài khoản và tổng số lượng.
+     */
+    async findByUserIdPaginated(userId, limit, offset) {
+        try {
+            // Truy vấn để lấy tổng số tài khoản
+            const [totalRows] = await pool.execute(
+                'SELECT COUNT(*) AS total FROM accounts WHERE user_id = ?',
+                [userId]
+            );
+            const total = totalRows[0].total;
+
+            // Truy vấn để lấy dữ liệu tài khoản với LIMIT và OFFSET
+            const [accounts] = await pool.execute(
+                `SELECT id, account_name, currency_code, initial_balance, current_balance, created_at
+                 FROM accounts
+                 WHERE user_id = ?
+                 ORDER BY created_at DESC
+                 LIMIT ? OFFSET ?`,
+                [userId, limit, offset]
+            );
+
+            return { accounts, total }; // Trả về cả danh sách tài khoản và tổng số lượng
+        } catch (error) {
+            console.error(`Error fetching paginated accounts for user ${userId}:`, error);
             throw error;
         }
     }

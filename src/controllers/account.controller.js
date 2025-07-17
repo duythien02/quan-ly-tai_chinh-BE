@@ -47,8 +47,8 @@ const AccountController = {
             const newAccountId = await Account.create(userId, accountName, normalizedCurrencyCode, initialBalance);
 
             // Trả về phản hồi thành công
-            res.status(201).json({ // 201 Created
-                status: 201,
+            res.status(200).json({ // 201 Created
+                status: 200,
                 message: 'Account created successfully!',
                 data: {
                     id: newAccountId,
@@ -90,17 +90,63 @@ const AccountController = {
 
     // Bạn có thể có thêm các API khác như getAccounts, updateAccount, deleteAccount...
     // Ví dụ: Lấy tất cả tài khoản của người dùng hiện tại
+    /**
+     * Lấy danh sách tài khoản của người dùng với phân trang.
+     * @param {Object} req - Đối tượng Request của Express. req.query có thể chứa 'page' và 'limit'.
+     * @param {Object} res - Đối tượng Response của Express.
+     */
     getAccounts: async (req, res) => {
         const userId = req.user ? req.user.id : null;
         if (!userId) {
-            return res.status(401).json({ status: 401, code: ERROR_CODES.AUTH_UNAUTHORIZED, message: 'Unauthorized.' });
+            return res.status(401).json({
+                status: 401,
+                code: ERROR_CODES.AUTH_UNAUTHORIZED,
+                message: 'Unauthorized.'
+            });
         }
+
+        // Lấy tham số phân trang từ query string
+        // Sử dụng parseInt để chuyển đổi sang số nguyên.
+        // Cung cấp giá trị mặc định nếu không có hoặc không hợp lệ.
+        const page = parseInt(req.query.page) || 1; // Trang hiện tại, mặc định là trang 1
+        const limit = parseInt(req.query.limit) || 10; // Số lượng mục mỗi trang, mặc định là 10
+        const offset = (page - 1) * limit; // Tính toán offset (vị trí bắt đầu lấy dữ liệu)
+
+        // Kiểm tra page và limit phải là số dương
+        if (page < 1 || limit < 1) {
+            return res.status(400).json({
+                status: 400,
+                code: ERROR_CODES.INVALID_PAGINATION_PARAMS, // Có thể thêm mã lỗi này
+                message: 'Page and limit must be positive integers.'
+            });
+        }
+
         try {
-            const accounts = await Account.findByUserId(userId);
-            res.status(200).json({ status: 200, message: 'Accounts retrieved successfully!', data: accounts });
+            // Gọi hàm từ Account Model để lấy dữ liệu phân trang và tổng số lượng
+            // Chúng ta sẽ cần cập nhật Account.findByUserId để hỗ trợ paging
+            const { accounts, total } = await Account.findByUserIdPaginated(userId, limit, offset);
+
+            // Tính toán tổng số trang
+            const totalPages = Math.ceil(total / limit);
+
+            res.status(200).json({
+                status: 200,
+                message: 'Accounts retrieved successfully!',
+                data: {
+                    items: accounts,
+                    currentPage: page,
+                    pageSize: limit,
+                    totalPages: totalPages,
+                    totalItems: total,
+                }
+            });
         } catch (error) {
-            console.error('Error fetching accounts:', error);
-            res.status(500).json({ status: 500, code: ERROR_CODES.INTERNAL_SERVER_ERROR, message: 'Internal server error when fetching accounts.' });
+            console.error('Error fetching accounts with pagination:', error);
+            res.status(500).json({
+                status: 500,
+                code: ERROR_CODES.INTERNAL_SERVER_ERROR,
+                message: 'Internal server error when fetching accounts.'
+            });
         }
     }
 };
