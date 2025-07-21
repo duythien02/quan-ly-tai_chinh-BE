@@ -14,11 +14,20 @@ const AccountModel = {
     async create(userId, accountName, currencyCode, initialBalance) {
         const accountId = UuidUtil.generateUuid();
         const currentBalance = initialBalance;
-
+        let isMain = false;
         try {
+            const [existingAccounts] = await pool.query(
+                'SELECT COUNT(*) AS count FROM accounts WHERE user_id = ?',
+                [userId]
+            );
+
+            // Nếu người dùng chưa có tài khoản nào, đặt tài khoản này làm chính
+            if (existingAccounts[0].count === 0) {
+                isMain = true;
+            }
             await pool.execute(
-                'INSERT INTO accounts (id, user_id, account_name, currency_code, initial_balance, current_balance) VALUES (?, ?, ?, ?, ?, ?)',
-                [accountId, userId, accountName, currencyCode, initialBalance, currentBalance]
+                'INSERT INTO accounts (id, user_id, account_name, currency_code, initial_balance, current_balance, is_main) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [accountId, userId, accountName, currencyCode, initialBalance, currentBalance, isMain]
             );
             return accountId;
         } catch (error) {
@@ -35,7 +44,7 @@ const AccountModel = {
     async findByUserId(userId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, account_name, currency_code, initial_balance, current_balance FROM accounts WHERE user_id = ?',
+                'SELECT id, account_name, currency_code, initial_balance, current_balance, is_main FROM accounts WHERE user_id = ?',
                 [userId]
             );
             return rows;
@@ -53,7 +62,7 @@ const AccountModel = {
     async findById(accountId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, user_id, account_name, currency_code, initial_balance, current_balance, created_at FROM accounts WHERE id = ?',
+                'SELECT id, user_id, account_name, currency_code, initial_balance, current_balance, created_at, is_main FROM accounts WHERE id = ?',
                 [accountId]
             );
             return rows[0]; // Trả về đối tượng đầu tiên hoặc undefined
@@ -98,7 +107,7 @@ const AccountModel = {
 
             // Truy vấn để lấy dữ liệu tài khoản với LIMIT và OFFSET
             const [accounts] = await pool.execute(
-                `SELECT id, account_name, currency_code, initial_balance, current_balance, created_at
+                `SELECT id, account_name, currency_code, initial_balance, current_balance, created_at, is_main
                  FROM accounts
                  WHERE user_id = ?
                  ORDER BY created_at DESC
@@ -109,6 +118,21 @@ const AccountModel = {
             return { accounts, total }; // Trả về cả danh sách tài khoản và tổng số lượng
         } catch (error) {
             console.error(`Error fetching paginated accounts for user ${userId}:`, error);
+            throw error;
+        }
+    },
+
+    async checkIfUserHasAccounts(userId) {
+        try {
+            const [rows] = await pool.execute(
+                // Query này sẽ dừng ngay khi tìm thấy dòng đầu tiên.
+                'SELECT 1 FROM accounts WHERE user_id = ? LIMIT 1',
+                [userId]
+            );
+            // Nếu query trả về bất kỳ dòng nào (rows.length > 0), nghĩa là có tài khoản.
+            return rows.length > 0;
+        } catch (error) {
+            console.error(`Error checking accounts existence for user ${userId}:`, error);
             throw error;
         }
     }
