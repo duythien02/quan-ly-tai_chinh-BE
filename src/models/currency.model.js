@@ -8,8 +8,21 @@ const CurrencyModel = {
      */
     async getAll() {
         try {
-            const [rows] = await pool.execute('SELECT code, name, symbol FROM currencies WHERE is_active = TRUE');
-            return rows;
+            const query = `
+                SELECT code, name, symbol
+                FROM currencies
+                WHERE is_active = TRUE
+                ORDER BY
+                    CASE
+                        WHEN code = 'VND' THEN 0
+                        ELSE 1
+                    END,
+                    name ASC
+            `;
+            const [rows] = await pool.execute(query);
+            return {
+                items: rows
+            };
         } catch (error) {
             console.error('Error fetching all currencies:', error);
             throw error; // Ném lỗi để controller xử lý
