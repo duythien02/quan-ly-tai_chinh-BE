@@ -57,9 +57,6 @@ const AuthController = {
                 status: 200,
                 message: 'User registered successfully!',
                 data: {
-                    id: newUserId,
-                    username,
-                    email,
                     accessToken,
                     refreshToken
                 },
@@ -124,9 +121,6 @@ const AuthController = {
                 status: 200,
                 message: 'Logged in successfully!',
                 data: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
                     hasAccounts: hasAccounts,
                     accessToken,
                     refreshToken

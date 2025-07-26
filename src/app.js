@@ -1,38 +1,32 @@
 // src/app.js
-require('dotenv').config(); // Load biến môi trường từ .env
+require('dotenv').config();
 
-// Đảm bảo file database.js của bạn thiết lập kết nối (ví dụ: tạo pool)
-// và xuất ra một đối tượng kết nối có thể được các models sử dụng.
-// Nếu file này chỉ thiết lập kết nối mà không export gì, dòng require này vẫn ổn.
 require('./config/database');
 
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 3000; // Lấy PORT từ .env hoặc mặc định 3000
+const PORT = process.env.PORT || 3000;
 
-const cors = require('cors'); // Import cors middleware
-const errorHandler = require('./middlewares/errorHandler'); // Import error handler của bạn
+const cors = require('cors');
+const errorHandler = require('./middlewares/errorHandler');
 
-// Middleware để parse JSON body từ request
 app.use(express.json());
 
-// Sử dụng CORS middleware - Cho phép mọi nguồn gốc truy cập (cẩn thận khi triển khai production)
 app.use(cors());
 
 // Import routes
-// Đảm bảo tên file ở đây khớp chính xác với tên file THỰC TẾ của bạn
 const authRoutes = require('./routes/auth.routes');
 const userRoutes = require('./routes/user.routes');
 const transactionRoutes = require('./routes/transaction.routes');
 const categoryRoutes = require('./routes/category.routes');
-const accountRoutes = require('./routes/account.routes'); // Dòng này quan trọng cho API tạo tài khoản
+const accountRoutes = require('./routes/account.routes');
 
 // Sử dụng các routes
 app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes); // Nếu bạn có API quản lý user riêng
+app.use('/api/user', userRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/accounts', accountRoutes); // Route cho tài khoản và tiền tệ
+app.use('/api/accounts', accountRoutes);
 
 // Route đơn giản để kiểm tra server
 app.get('/', (req, res) => {

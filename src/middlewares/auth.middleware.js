@@ -42,13 +42,13 @@ const authMiddleware = async (req, res, next) => {
             return res.status(401).json({
                 status: 401,
                 code: ERROR_CODES.AUTH_TOKEN_EXPIRED,
-                message: 'Authentication token has expired. Please log in again.'
+                message: 'Authentication token has expired'
             });
         } else if (error.message.includes('invalid') || error.message.includes('malformed')) { // Lỗi token không hợp lệ
              return res.status(401).json({
                 status: 401,
                 code: ERROR_CODES.AUTH_TOKEN_INVALID,
-                message: 'Invalid authentication token. Please log in again.'
+                message: 'Invalid authentication token.'
             });
         }
         res.status(500).json({ // Lỗi không xác định

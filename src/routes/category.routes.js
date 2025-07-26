@@ -1,8 +1,14 @@
-// Ví dụ: src/routes/auth.routes.js
+// src/routes/category.routes.js
 const express = require('express');
-const router = express.Router(); // <= Dòng này phải có để khởi tạo router
+const router = express.Router();
+const CategoryController = require('../controllers/category.controller');
+// Import theo "cách cũ"
+const protect = require('../middlewares/auth.middleware');
 
-// Sau này bạn sẽ định nghĩa các endpoint ở đây, ví dụ:
-// router.post('/register', authController.register);
+// Định nghĩa các endpoints cho CRUD và áp dụng `protect` cho từng cái
+router.post('/', protect, CategoryController.createCategory);
+router.get('/', protect, CategoryController.getAllCategories);
+router.put('/:id', protect, CategoryController.updateCategory);
+router.delete('/:id', protect, CategoryController.deleteCategory);
 
-module.exports = router; // <= Và dòng này phải có để export router
+module.exports = router;

@@ -1,8 +1,10 @@
-// Ví dụ: src/routes/auth.routes.js
+// src/routes/user.routes.js
 const express = require('express');
-const router = express.Router(); // <= Dòng này phải có để khởi tạo router
+const router = express.Router();
+const UserController = require('../controllers/user.controller');
+const protect = require('../middlewares/auth.middleware');
 
-// Sau này bạn sẽ định nghĩa các endpoint ở đây, ví dụ:
-// router.post('/register', authController.register);
+// This endpoint requires authentication, so we use the `protect` middleware
+router.get('/me', protect, UserController.getMe);
 
-module.exports = router; // <= Và dòng này phải có để export router
+module.exports = router;
