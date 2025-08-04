@@ -3,46 +3,49 @@ const pool = require('../config/database');
 const UuidUtil = require('../utils/uuid.utils');
 
 const AccountModel = {
-    /**
-     * Tạo một tài khoản mới trong cơ sở dữ liệu.
-     * @param {string} userId - ID của người dùng sở hữu tài khoản.
-     * @param {string} accountName - Tên của tài khoản.
-     * @param {string} currencyCode - Mã tiền tệ của tài khoản (ví dụ: 'VND').
-     * @param {number} initialBalance - Số dư ban đầu của tài khoản.
-     * @returns {string} ID của tài khoản vừa được tạo.
-     */
-    async create(userId, accountName, currencyCode, initialBalance) {
-        const accountId = UuidUtil.generateUuid();
-        const currentBalance = initialBalance;
-        let isMain = false;
+    async create(userId, accountName, currencyCode, initialBalance, description = null) {
+        const connection = await pool.getConnection();
         try {
-            const [existingAccounts] = await pool.query(
-                'SELECT COUNT(*) AS count FROM accounts WHERE user_id = ?',
-                [userId]
+            await connection.beginTransaction();
+
+            const [currencyRows] = await connection.execute(
+                'SELECT symbol FROM currencies WHERE code = ?',
+                [currencyCode]
             );
 
-            // Nếu người dùng chưa có tài khoản nào, đặt tài khoản này làm chính
-            if (existingAccounts[0].count === 0) {
-                isMain = true;
+            if (currencyRows.length === 0) {
+                throw new Error(`Invalid currency code: ${currencyCode}`);
             }
-            await pool.execute(
-                'INSERT INTO accounts (id, user_id, account_name, currency_code, initial_balance, current_balance, is_main) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [accountId, userId, accountName, currencyCode, initialBalance, currentBalance, isMain]
+            const currencySymbol = currencyRows[0].symbol;
+
+            const [countRows] = await connection.execute(
+                'SELECT COUNT(*) as count FROM accounts WHERE user_id = ?',
+                [userId]
             );
+            const isMain = countRows[0].count === 0;
+
+            const accountId = UuidUtil.generateUuid();
+            await connection.execute(
+                'INSERT INTO accounts (id, user_id, account_name, currency_code, currency_symbol, initial_balance, current_balance, description, is_main) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [accountId, userId, accountName, currencyCode, currencySymbol, initialBalance, initialBalance, description, isMain]
+            );
+
+            await connection.commit();
+            logger.info(`Account ${accountId} created successfully for user ${userId}`);
             return accountId;
+
         } catch (error) {
-            console.error('Error creating account:', error);
-            throw error; // Ném lỗi để controller xử lý
+            await connection.rollback();
+            logger.error(`Error creating account for user ${userId}: ${error.message}`);
+            throw error;
+        } finally {
+            connection.release();
         }
     },
 
-    /**
-     * Tìm tất cả tài khoản thuộc về một người dùng cụ thể.
-     * @param {string} userId - ID của người dùng.
-     * @returns {Array} Mảng các đối tượng tài khoản.
-     */
     async findByUserId(userId) {
         try {
+            
             const [rows] = await pool.execute(
                 'SELECT id, account_name, currency_code, initial_balance, current_balance, is_main FROM accounts WHERE user_id = ?',
                 [userId]
@@ -54,30 +57,19 @@ const AccountModel = {
         }
     },
 
-    /**
-     * Tìm một tài khoản theo ID của nó.
-     * @param {string} accountId - ID của tài khoản.
-     * @returns {Object} Đối tượng tài khoản hoặc undefined nếu không tìm thấy.
-     */
     async findById(accountId) {
         try {
             const [rows] = await pool.execute(
                 'SELECT id, user_id, account_name, currency_code, initial_balance, current_balance, created_at, is_main FROM accounts WHERE id = ?',
                 [accountId]
             );
-            return rows[0]; // Trả về đối tượng đầu tiên hoặc undefined
+            return rows[0];
         } catch (error) {
             console.error(`Error fetching account by ID ${accountId}:`, error);
             throw error;
         }
     },
 
-    /**
-     * Cập nhật số dư hiện tại của một tài khoản.
-     * @param {string} accountId - ID của tài khoản cần cập nhật.
-     * @param {number} newBalance - Số dư mới.
-     * @param {Object} [connection=pool] - Tùy chọn, đối tượng kết nối database (dùng cho transaction).
-     */
     async updateBalance(accountId, newBalance, connection = pool) {
         try {
             await connection.execute(
@@ -89,35 +81,52 @@ const AccountModel = {
             throw error;
         }
     },
-    /**
-     * Tìm tất cả tài khoản thuộc về một người dùng cụ thể với phân trang.
-     * @param {string} userId - ID của người dùng.
-     * @param {number} limit - Số lượng bản ghi tối đa mỗi trang.
-     * @param {number} offset - Vị trí bắt đầu lấy bản ghi.
-     * @returns {Object} Đối tượng chứa mảng tài khoản và tổng số lượng.
-     */
+
     async findByUserIdPaginated(userId, limit, offset) {
         try {
-            // Truy vấn để lấy tổng số tài khoản
-            const [totalRows] = await pool.execute(
-                'SELECT COUNT(*) AS total FROM accounts WHERE user_id = ?',
-                [userId]
-            );
+            // Bước 1: Vẫn lấy tổng số tài khoản để phân trang (query này nhanh và hiệu quả)
+            const [totalRows] = await pool.execute('SELECT COUNT(*) AS total FROM accounts WHERE user_id = ?', [userId]);
             const total = totalRows[0].total;
 
-            // Truy vấn để lấy dữ liệu tài khoản với LIMIT và OFFSET
-            const [accounts] = await pool.execute(
-                `SELECT id, account_name, currency_code, initial_balance, current_balance, created_at, is_main
-                 FROM accounts
-                 WHERE user_id = ?
-                 ORDER BY created_at DESC
-                 LIMIT ? OFFSET ?`,
-                [userId, limit, offset]
-            );
+            // Bước 2: Viết lại câu lệnh chính để lấy dữ liệu tài khoản kèm thu/chi
+            const sqlQuery = `
+                SELECT
+                    a.id,
+                    a.account_name,
+                    a.currency_code,
+                    a.currency_symbol,
+                    a.current_balance,
+                    a.description,
+                    a.is_main,
+                    COALESCE(SUM(CASE WHEN t.transaction_type = 'income' THEN t.amount ELSE 0 END), 0) AS total_income,
+                    COALESCE(SUM(CASE WHEN t.transaction_type = 'expense' THEN t.amount ELSE 0 END), 0) AS total_expense
+                FROM
+                    accounts a
+                LEFT JOIN
+                    transactions t ON a.id = t.account_id
+                WHERE
+                    a.user_id = ?
+                GROUP BY
+                    a.id
+                ORDER BY
+                    a.created_at DESC
+                LIMIT ?
+                OFFSET ?;
+            `;
+            const [rows] = await pool.execute(sqlQuery, [userId, limit.toString(), offset.toString()]);
 
-            return { accounts, total }; // Trả về cả danh sách tài khoản và tổng số lượng
+            const accounts = rows.map(account => ({
+                ...account,
+                current_balance: parseFloat(account.current_balance),
+                is_main: Boolean(account.is_main),
+                total_income: parseFloat(account.total_income),
+                total_expense: parseFloat(account.total_expense)
+            }));
+
+            return { accounts, total };
+
         } catch (error) {
-            console.error(`Error fetching paginated accounts for user ${userId}:`, error);
+            logger.error(`Error fetching paginated accounts for user ${userId}: ${error.message}`);
             throw error;
         }
     },
