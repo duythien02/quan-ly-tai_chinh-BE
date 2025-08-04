@@ -4,6 +4,8 @@ require('dotenv').config();
 require('./config/database');
 
 const express = require('express');
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -13,6 +15,8 @@ const errorHandler = require('./middlewares/errorHandler');
 app.use(express.json());
 
 app.use(cors());
+
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
@@ -24,9 +28,9 @@ const accountRoutes = require('./routes/account.routes');
 // Sử dụng các routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/transactions', transactionRoutes);
-app.use('/api/categories', categoryRoutes);
-app.use('/api/accounts', accountRoutes);
+app.use('/api/transaction', transactionRoutes);
+app.use('/api/category', categoryRoutes);
+app.use('/api/account', accountRoutes);
 
 // Route đơn giản để kiểm tra server
 app.get('/', (req, res) => {

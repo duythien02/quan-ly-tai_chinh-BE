@@ -17,11 +17,10 @@ const CategoryModel = {
             throw error;
         }
     },
-
     async findByUserId(userId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, name, type, description, created_at FROM categories WHERE user_id = ? ORDER BY created_at DESC',
+                'SELECT id, name, type, description, icon_url, created_at FROM categories WHERE user_id = ? OR user_id IS NULL ORDER BY created_at DESC',
                 [userId]
             );
             return rows;
@@ -34,7 +33,7 @@ const CategoryModel = {
     async findById(categoryId) {
         try {
             const [rows] = await pool.execute(
-                'SELECT id, user_id, name, type, description FROM categories WHERE id = ?',
+                'SELECT id, user_id, name, type, description, icon_url FROM categories WHERE id = ?',
                 [categoryId]
             );
             return rows[0];
@@ -68,7 +67,7 @@ const CategoryModel = {
             console.error(`Error deleting category ${categoryId}:`, error);
             throw error;
         }
-    }
+    },
 };
 
 module.exports = CategoryModel;
