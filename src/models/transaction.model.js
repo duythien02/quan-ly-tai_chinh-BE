@@ -1,6 +1,7 @@
 // src/models/transaction.model.js
 const pool = require('../config/database');
 const logger = require('../config/logger');
+const UuidUtil = require('../utils/uuid.utils');
 
 const TransactionModel = {
     /**
@@ -53,7 +54,7 @@ const TransactionModel = {
      * @returns {string} ID của giao dịch vừa được tạo.
      */
     async addTransaction(transactionDetails) {
-        const { userId, accountId, categoryId, transactionType, amount, description, transactionDate } = transactionDetails;
+        const { userId, accountId, categoryId, type, amount, description, date } = transactionDetails;
 
         // Lấy một kết nối từ pool để quản lý transaction
         const connection = await pool.getConnection();
@@ -67,14 +68,17 @@ const TransactionModel = {
                 INSERT INTO transactions (id, user_id, account_id, category_id, transaction_type, amount, description, transaction_date)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?);
             `;
-            await connection.execute(transactionQuery, [transactionId, userId, accountId, categoryId, transactionType, amount, description, transactionDate]);
+            const params = [transactionId, userId, accountId, categoryId, type, amount, description, date];
+            logger.debug('Executing INSERT with params:', { params }); // Ghi log ra file để kiểm tra
+            
+            await connection.execute(transactionQuery, [transactionId, userId, accountId, categoryId, type, amount, description, date]);
 
             // 2. Cập nhật số dư trong bảng `accounts`
             // Sử dụng một câu lệnh duy nhất để tăng hoặc giảm số dư
             let balanceChangeQuery;
-            if (transactionType === 'income') {
+            if (type === 'income') {
                 balanceChangeQuery = 'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?';
-            } else if (transactionType === 'expense') {
+            } else if (type === 'expense') {
                 balanceChangeQuery = 'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?';
             } else {
                 // Nếu là 'transfer', chúng ta sẽ xử lý phức tạp hơn sau này. Hiện tại chỉ hỗ trợ income/expense.
