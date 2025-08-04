@@ -1,6 +1,7 @@
 // src/controllers/category.controller.js
 const Category = require('../models/category.model');
 const ERROR_CODES = require('../utils/error.codes');
+const logger = require('../config/logger');
 
 const CategoryController = {
     // [POST] /api/categories
@@ -47,7 +48,7 @@ const CategoryController = {
         }
     },
 
-    // [GET] /api/categories
+    // [GET] /api/category
     getAllCategories: async (req, res, next) => {
         try {
             const userId = req.user.id;
@@ -55,7 +56,9 @@ const CategoryController = {
             res.status(200).json({
                 status: 200,
                 message: 'Categories fetched successfully!',
-                data: categories
+                data: {
+                    items: categories,
+                }
             });
         } catch (error) {
             next(error);
@@ -148,7 +151,7 @@ const CategoryController = {
         } catch (error) {
             next(error);
         }
-    }
+    },
 };
 
 module.exports = CategoryController;

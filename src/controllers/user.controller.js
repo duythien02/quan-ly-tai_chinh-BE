@@ -1,5 +1,6 @@
 // src/controllers/user.controller.js
 const User = require('../models/user.model');
+const logger = require('../config/logger');
 
 const UserController = {
     // [GET] /api/users/me

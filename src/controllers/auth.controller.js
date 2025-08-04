@@ -4,6 +4,7 @@ const AccountModel = require('../models/account.model');
 const PasswordUtil = require('../utils/password.utils');
 const JwtUtil = require('../utils/jwt.utils');
 const ERROR_CODES = require('../utils/error.codes'); // Import mã lỗi
+const logger = require('../config/logger');
 
 const AuthController = {
     // Hàm xử lý Đăng ký người dùng mới
@@ -57,6 +58,7 @@ const AuthController = {
                 status: 200,
                 message: 'User registered successfully!',
                 data: {
+                    id: newUserId,
                     accessToken,
                     refreshToken
                 },
@@ -121,6 +123,7 @@ const AuthController = {
                 status: 200,
                 message: 'Logged in successfully!',
                 data: {
+                    userId: user.id,
                     hasAccounts: hasAccounts,
                     accessToken,
                     refreshToken
@@ -150,7 +153,7 @@ const AuthController = {
 
         try {
             // 1. Xác minh refresh token
-            const decoded = JwtUtil.verifyToken(refreshToken, 'refresh'); // Sử dụng tokenType 'refresh'
+            const decoded = JwtUtil.verifyToken(refreshToken, 'refresh');
 
             // 2. Kiểm tra người dùng có tồn tại trong DB không
             const user = await User.findById(decoded.id);

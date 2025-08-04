@@ -6,7 +6,7 @@ const User = {
     // Tìm người dùng theo ID
     findById: async (id) => {
         try {
-            const [rows] = await pool.execute('SELECT id, username, email, created_at, updated_at FROM users WHERE id = ?', [id]);
+            const [rows] = await pool.execute('SELECT id, username, email, avatar, created_at, updated_at FROM users WHERE id = ?', [id]);
             return rows[0]; // Trả về người dùng đầu tiên tìm thấy
         } catch (error) {
             console.error('Error finding user by ID:', error);
